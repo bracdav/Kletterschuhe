@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
 
-
 class ProductLinks:
 
     def __init__(self, baseurl, class_):
@@ -25,4 +24,17 @@ class ProductDetails:
         self.links = links
 
     def getFirst(self):
-        pass
+        print('Iam first')
+
+
+class ScrapExecutor:
+    def execute(self, objectToScrap, baseurl, class_ = None):
+        if (isinstance(objectToScrap, str)):
+            self.objectToScrap = ProductLinks(baseurl, class_)
+            self.objectToScrap.execute(objectToScrap)
+            return self.objectToScrap.Links
+        elif (isinstance(objectToScrap, list)):
+            self.objectToScrap = ProductDetails(objectToScrap)
+            self.objectToScrap.getFirst()
+            return
+        return 'Object type not implemented'
