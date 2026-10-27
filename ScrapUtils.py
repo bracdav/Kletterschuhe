@@ -62,6 +62,12 @@ class ProductDetails:
     
         return {'availableSizes' : available_sizes}, self.pageState['modules']['productPage']
 
+    def getDiscriptions(self):
+        res = {}
+        res['shortDescription'] = self.pageState['global']['schemaOrg'][0]['description']
+        res['longDescription'] = self.pageState['modules']['productPage']['productData']['longDescription']
+        return res
+
     def ExtractProductInformation(self, index):
         soup = self.SelectLink(index)
         features_dict = {}
