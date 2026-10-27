@@ -10,9 +10,8 @@ class ProductLinks:
         self.productLinkList = []
         self.Links = []
 
-    def execute(self):
-        for page in range(1, 8):
-            r = requests.get(f'https://www.bergzeit.ch/schuhe/kletterschuhe/?p={page}&sortBy=ct')
+    def execute(self, linkToScrap):
+            r = requests.get(linkToScrap)
             soup = BeautifulSoup(r.content, 'lxml')
             product_list = soup.find_all('div', class_='products-list-page-preloader__links')
             
