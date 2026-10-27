@@ -24,6 +24,7 @@ class ProductLinks:
 class ProductDetails:
     def __init__(self, links):
         self.links = links
+        self.pageState = None
 
     def SelectLink(self, index):
         r = requests.get(self.links[index])
@@ -32,13 +33,13 @@ class ProductDetails:
 
     def getFirst(self):
         extractedInformation = self.ExtractProductInformation(0)
-        extractedSizes = self.getSizes(0)
+        extractedSizes, description = self.getSizes(0)
         key = list(extractedSizes.keys())[0]
         extractedInformation[key] = extractedSizes[key] 
 
-        return extractedInformation
+        return extractedInformation, description
 
-    def getSizes(self, index):
+    def setPageState(self, index):
         soup = self.SelectLink(index)
         script_tag = soup.find('script', string=lambda t: t and '__initialAppState' in t)
 
@@ -49,15 +50,17 @@ class ProductDetails:
         _, json_like_str = script_text.split('window.__initialAppState =', 1)
         json_like_str = json_like_str.strip().rstrip(';')
         json_like_str = re.sub(r'JSON\.parse\s*\("[^"]*(?:\\.[^"]*)*"\)', 'null', json_like_str, flags=re.DOTALL)
-        app_state = json5.loads(json_like_str)
+        self.pageState = json5.loads(json_like_str)
 
-        product_data = app_state['modules']['productPage']['productData']['productDetails']['product']['variations'][1]['options']
+    def getSizes(self, index):
+        self.setPageState(index)
 
+        product_data = self.pageState['modules']['productPage']['productData']['productDetails']['product']['variations'][1]['options']
         available_sizes = []
         for product in product_data:
             available_sizes.append(product['value'].replace('EU ', ''))
     
-        return {'availableSizes' : available_sizes}
+        return {'availableSizes' : available_sizes}, self.pageState['modules']['productPage']
 
     def ExtractProductInformation(self, index):
         soup = self.SelectLink(index)
@@ -79,7 +82,6 @@ class ProductDetails:
                     if text_div:
                         values = [text_div.get_text(strip=True)]  # Wrap in a list for consistency
                         
-                # 4. Save to dictionary
                 features_dict[key] = values
 
         return features_dict
