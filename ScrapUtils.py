@@ -25,23 +25,14 @@ class ProductDetails:
     def __init__(self, links):
         self.links = links
         self.pageState = None
+        self.soup = None
 
-    def SelectLink(self, index):
-        r = requests.get(self.links[index])
-        soup = BeautifulSoup(r.content, 'html.parser')
-        return soup
+    def setSoup(self, link):
+        r = requests.get(link)
+        self.soup = BeautifulSoup(r.content, 'html.parser')
 
-    def getFirst(self):
-        extractedInformation = self.ExtractProductInformation(0)
-        extractedSizes, description = self.getSizes(0)
-        key = list(extractedSizes.keys())[0]
-        extractedInformation[key] = extractedSizes[key] 
-
-        return extractedInformation, description
-
-    def setPageState(self, index):
-        soup = self.SelectLink(index)
-        script_tag = soup.find('script', string=lambda t: t and '__initialAppState' in t)
+    def setPageState(self):
+        script_tag = self.soup.find('script', string=lambda t: t and '__initialAppState' in t)
 
         if not script_tag:
             raise ValueError("Could not find script tag with __initialAppState")
@@ -52,27 +43,40 @@ class ProductDetails:
         json_like_str = re.sub(r'JSON\.parse\s*\("[^"]*(?:\\.[^"]*)*"\)', 'null', json_like_str, flags=re.DOTALL)
         self.pageState = json5.loads(json_like_str)
 
-    def getSizes(self, index):
-        self.setPageState(index)
+    def initialize(self, link):
+        self.setSoup(link)
+        self.setPageState()
+
+
+    def getFirst(self):
+        extractedInformation = self.ExtractProductInformation(0)
+        extractedSizes, description = self.getSizes(0)
+        key = list(extractedSizes.keys())[0]
+        extractedInformation[key] = extractedSizes[key] 
+
+        return extractedInformation, description
+
+    def getSizes(self):
+        #self.setPageState(index)
 
         product_data = self.pageState['modules']['productPage']['productData']['productDetails']['product']['variations'][1]['options']
         available_sizes = []
         for product in product_data:
             available_sizes.append(product['value'].replace('EU ', ''))
     
-        return {'availableSizes' : available_sizes}, self.pageState['modules']['productPage']
+        return {'availableSizes' : available_sizes}#, self.pageState['modules']['productPage']
 
     def getDiscriptions(self):
         res = {}
-        res['shortDescription'] = self.pageState['global']['schemaOrg'][0]['description']
-        res['longDescription'] = self.pageState['modules']['productPage']['productData']['longDescription']
+        res['shortDescription'] = BeautifulSoup(self.pageState['global']['schemaOrg'][0]['description'], 'html.parser').get_text()
+        res['longDescription'] = BeautifulSoup(self.pageState['modules']['productPage']['productData']['longDescription'], 'html.parser').get_text()
         return res
 
-    def ExtractProductInformation(self, index):
-        soup = self.SelectLink(index)
+    def ExtractProductInformation(self):
+        #soup = self.SelectLink(index)
         features_dict = {}
 
-        for feature_div in soup.find_all('div', class_='product-features__feature'):
+        for feature_div in self.soup.find_all('div', class_='product-features__feature'):
             name_div = feature_div.find('div', class_='product-features__feature-name')
             
             if name_div:
@@ -92,6 +96,24 @@ class ProductDetails:
 
         return features_dict
 
+    def appendDict(self, dict1, dict2):
+        for key in dict2.keys():
+            dict1[key] = dict2[key]
+
+        return dict1
+
+    def execute(self):
+        res = []
+        for link in self.links:
+            self.initialize(link)
+            sizes = self.getSizes()
+            descriptions = self.getDiscriptions()
+            merged = self.appendDict(descriptions, sizes)
+            product_information = self.ExtractProductInformation()
+            merged = self.appendDict(merged, product_information)
+            res.append(merged)
+        return res
+
 
 
 
@@ -103,5 +125,5 @@ class ScrapExecutor:
             return self.objectToScrap.Links
         elif (isinstance(objectToScrap, list)):
             self.objectToScrap = ProductDetails(objectToScrap)
-            return self.objectToScrap.getFirst()
+            return self.objectToScrap.execute()
         return 'Object type not implemented'
